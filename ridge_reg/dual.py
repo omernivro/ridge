@@ -17,7 +17,7 @@ class dual(ridge):
         self.combo = list(itertools.product(regularizer, self.sigma))
         return(self.combo)
 
-    def gaus_kernel(self, x, sigma):
+    def gaus_kernel(self, x, sig):
         '''page 77 J.shaw taylor
         also called RBF kernel, it corresponds
         to applying a gausian with mean at point z and get the prob. that
@@ -25,14 +25,14 @@ class dual(ridge):
         new point can be viewed as a weighted combination of my
         probability to belong to any one of the gausians'''
         nrow, ncol = np.shape(x)
-        K = np.matmul(x, np.transpose(x)) / (sigma ** 2)
+        K = np.matmul(x, np.transpose(x)) / (sig ** 2)
         d = np.diag(K)
-        K1 = K - (d.reshape(-1, 1) / (2 * (sigma ** 2)))
-        K2 = K1 - (d.reshape(1, -1) / (2 * (sigma ** 2)))
+        K1 = K - (d.reshape(-1, 1) / (2 * (sig ** 2)))
+        K2 = K1 - (d.reshape(1, -1) / (2 * (sig ** 2)))
         K3 = np.exp(K2)
         return K3
 
-    def calc_kernel_mat(self, kernel_type, sigma=None):
+    def calc_kernel_mat(self, kernel_type, sig=None):
         if (kernel_type == 'lin'):
             ''' corresponds to regular linear regression'''
             self.ker = np.asmatrix(x.dot(x.transpose()))
@@ -44,13 +44,14 @@ class dual(ridge):
                 np.square(np.asarray(self.x.dot(self.x.transpose()))))
 
         if (kernel_type == 'gaus'):
-            '''infinite dimensional kernel'''
-            self.ker = self.gaus_kernel(self.x, sigma)
+            '''infinite dimensional kernel - note that
+            exponential can be written as an infinite dim series'''
+            self.ker = self.gaus_kernel(self.x, sig)
 
     def kernel_split(self, row_idx, col_idx):
-        partial_ker = self.ker[row_idx[:, None], col_idx]
+        self.partial_ker = self.ker[row_idx[:, None], col_idx]
 
-        return(partial_ker)
+        return(self.partial_ker)
 
     def calc_alpha(self, kernel, _y, regu):
         self.alpha = (inv(kernel + (regu) *
@@ -68,7 +69,7 @@ def main():
     data = scipy.io.loadmat('/Users/omer/Documents/studies/supervised_learning/SL_assignment_1/boston.mat')
     x, y = data['boston'][:,:13], data['boston'][:,13]
     rid_data = dual(x, y)
-    rid_data.calc_kernel_mat('gaus', sigma=0.1)
+    rid_data.calc_kernel_mat('gaus', sig=0.1)
 
 if __name__ == '__main__':
     main()

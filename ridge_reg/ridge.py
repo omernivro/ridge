@@ -2,7 +2,7 @@ import numpy as np
 import scipy.io
 
 class ridge(object):
-    trials = 10
+    trials = 3
     regularizer = []
     """docstring for ClassName"""
     def __init__(self, x, y):
@@ -10,7 +10,7 @@ class ridge(object):
         self.y = y
 
     def mse(self, y_true, y_hat):
-        self.err = sum(np.square(np.asarray(y_true - y_hat))) / (y_true.shape[0])
+        self.err = sum(np.square(np.asarray(y_true.reshape(-1, 1) - y_hat.reshape(-1, 1)))) / (y_true.shape[0])
 
         return(self.err)
 

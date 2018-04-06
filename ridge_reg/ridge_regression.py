@@ -49,13 +49,14 @@ def main():
     trial_err_dict = {'train': trial_times_comb,'validation': trial_times_comb,'test': trial_times_comb}
 
     for trial in xrange(rid_model.trials):
+        print ('trial number:', trial)
         count_comb = 0
 
         trval_idx, te_idx, x_trval, y_trval, x_te, y_te = rid_data.trval_te_idx_split()
 
         for comb in combo:
 
-            for iter_num in xrange(1, rid_data.cv+1):
+            for iter_num in xrange(1, rid_data.cv + 1, 1):
 
                 try:
 
@@ -73,7 +74,7 @@ def main():
                 val_idx, x_val, y_val, tr_idx, x_tr, y_tr = rid_data.split_cv(
                     iter_num, trval_idx)
 
-                rid_model.calc_kernel_mat('gaus', sigma=sig)
+                rid_model.calc_kernel_mat('gaus', sig)
 
                 tr_ker = rid_model.kernel_split(tr_idx, tr_idx)
                 val_ker = rid_model.kernel_split(val_idx, tr_idx)
@@ -101,8 +102,14 @@ def main():
         trial_err_dict['validation'][:, trial] = err_w_params[1, :].reshape(-1)
         trial_err_dict['test'][:, trial] = err_w_params[2, :].reshape(-1)
 
-    print min(trial_err_dict['validation'][:, 1])
+    avg_val_err = np.mean(trial_err_dict['validation'], 1).reshape(-1, 1)
 
+    print avg_val_err
+    loc = int(np.where(avg_val_err == min(avg_val_err))[0])
+    mini =  min(trial_err_dict['validation'][:, 1])
+    print min(trial_err_dict['validation'][:, 1])
+    print min(trial_err_dict['train'][:, 1])
+    print min(trial_err_dict['test'][:, 1])
 
 
 if __name__ == '__main__':
