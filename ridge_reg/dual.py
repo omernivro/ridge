@@ -1,4 +1,6 @@
+from ridge import ridge
 import numpy as np
+import scipy.io
 from numpy.linalg import inv
 import itertools
 
@@ -8,23 +10,22 @@ class dual(ridge):
     kernel_type = 'lin'
     sigma = None
 
-    def __init__(self, arg):
-        super(ridge, self).__init__()
-        self.arg = arg
+    def __init__(self, x, y):
+        super(dual, self).__init__(x, y)
 
     def create_params_combo(self, regularizer):
-        self.combo = list(itertools.product(regu, sigma))
+        self.combo = list(itertools.product(regularizer, self.sigma))
         return(self.combo)
 
-    def gaus_kernel(self, X1, sigma):
+    def gaus_kernel(self, x, sigma):
         '''page 77 J.shaw taylor
         also called RBF kernel, it corresponds
         to applying a gausian with mean at point z and get the prob. that
         point x came from that that gausian dist.. So a prediction at a
         new point can be viewed as a weighted combination of my
         probability to belong to any one of the gausians'''
-        nrow, ncol = np.shape(X1)
-        K = np.matmul(X1, np.transpose(X1)) / (sigma ** 2)
+        nrow, ncol = np.shape(x)
+        K = np.matmul(x, np.transpose(x)) / (sigma ** 2)
         d = np.diag(K)
         K1 = K - (d.reshape(-1, 1) / (2 * (sigma ** 2)))
         K2 = K1 - (d.reshape(1, -1) / (2 * (sigma ** 2)))
@@ -32,33 +33,42 @@ class dual(ridge):
         return K3
 
     def calc_kernel_mat(self, kernel_type, sigma=None):
-        if (typ == 'lin'):
+        if (kernel_type == 'lin'):
             ''' corresponds to regular linear regression'''
-            ker = np.asmatrix(x.dot(x.transpose()))
+            self.ker = np.asmatrix(x.dot(x.transpose()))
 
-        if (typ == 'quad'):
+        if (kernel_type == 'quad'):
             '''corresponds as one example to
-            feature map (x1^2, x2^2, √2*x1*x2) '''
-            ker = np.asmatrix(
+            feature map (x1^2, x2^2, sqroot2*x1*x2) '''
+            self.ker = np.asmatrix(
                 np.square(np.asarray(self.x.dot(self.x.transpose()))))
 
-        if (typ == 'gaus'):
-            '''Infinite dimensional kernel'''
-            ker = gaus_kernel(self.x, sigma)
+        if (kernel_type == 'gaus'):
+            '''infinite dimensional kernel'''
+            self.ker = self.gaus_kernel(self.x, sigma)
 
-        return(ker)
+    def kernel_split(self, row_idx, col_idx):
+        partial_ker = self.ker[row_idx[:, None], col_idx]
 
-    def predict(self, tr_kernel, tr_y, regu):
-        self.alpha = (
-            inv(tr_kernel + (regu) * (np.eye(tr_kernel.shape[0])))).dot(tr_y)
+        return(partial_ker)
 
-        y_hat = self.tr_kernel.dot(self.alpha)
+    def calc_alpha(self, kernel, _y, regu):
+        self.alpha = (inv(kernel + (regu) *
+                          (np.eye(kernel.shape[0])))).dot(_y)
+        return(self.alpha)
+
+    def predict(self, kernel, alpha):
+
+        self.y_hat = kernel.dot(alpha)
+
+        return(self.y_hat)
 
 
 def main():
-    pass
-
+    data = scipy.io.loadmat('/Users/omer/Documents/studies/supervised_learning/SL_assignment_1/boston.mat')
+    x, y = data['boston'][:,:13], data['boston'][:,13]
+    rid_data = dual(x, y)
+    rid_data.calc_kernel_mat('gaus', sigma=0.1)
 
 if __name__ == '__main__':
     main()
-

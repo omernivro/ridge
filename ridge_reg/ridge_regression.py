@@ -1,6 +1,10 @@
 
 # coding: utf-8
-
+from ridge import ridge
+from ridge_data import ridge_data
+from dual import dual
+from primal import primal
+import scipy.io
 import numpy as np
 from numpy.linalg import inv
 import decimal
@@ -18,48 +22,87 @@ as linear relatio'''
 use dual ridge when there are more dimensions than training examples'''
 
 
-
-def ridge_kernel_cv(x, y, trails, tr_perc, val_perc, typ, regu, sigma=None, cv=5):
-
-    cv_errs = []
-    err_w_params = []
-
-
-    for trial in xrange(trails):
-
-        tr_val_idx, te_idx = split_tr_te(x.shape[0], tr_perc=0.8)
-
-        x_tr_val, y_tr_val, x_te, y_te = x[tr_val_idx], y[tr_val_idx], x[te_idx], y[te_idx]
-
-        for comb in gen_regu_sigma_combo:
-
-            for iter_num in xrange(cv):
-
-                regulizer = comb[0]
-                sig = ifelse(len(comb) == 2, comb[1], None)
-
-                x_tr, y_tr, x_val, y_val, tr_idx, val_idx = cv_split(
-                    cv, iter_num, x_tr_val, y_tr_val, tr_val_idx)
-
-                ker_tr, ker_val_tr, ker_val, ker_te_tr, ker = ker_mat(
-                    x, tr_idx, val_idx, te_idx, typ, sigma=sig)
-
-                alp_dual, alp_val, hat_tr_val, hat_te, hat_val = dual_ridge(
-                    regulizer, ker_tr, ker_val, ker_val_tr, ker_te_tr, y_tr, y_tr_val)
-
-                val_err, tr_err, te_err = mean_error(
-                    y_tr_val, y_val, y_te, hat_tr_val, hat_val, hat_te)
-
-                cv_errs.append([tr_err, val_err, te_err])
-
-            err_w_params.append([comb, mean(cv_errs)])
-
-
-    return(err_w_params)
+# A function to get a series of numbers with a set jump between terms.
+def drange(x, y, jump):
+    while x < y:
+        yield float(x)
+        x += decimal.Decimal(jump)
 
 
 def main():
-    pass
+    data = scipy.io.loadmat(
+        '/Users/omer/Documents/studies/supervised_learning/SL_assignment_1/boston.mat')
+    x, y = data['boston'][:, :13], data['boston'][:, 13]
+    rid_data = ridge_data(x, y)
+
+    rid_model = dual(rid_data.x, rid_data.y)
+    pp = drange(7, 13.5, 0.5)
+    rid_model.sigma = [2 ** powr for powr in np.array(list(pp))]
+    powers = range(-20, -2, 1)
+    rid_model.regularizer = [2 ** powr for powr in powers]
+    combo = rid_model.create_params_combo(rid_model.regularizer)
+
+
+    cv_errs = np.zeros((3, rid_data.cv))
+    err_w_params = np.zeros((3, len(combo)))
+    trial_times_comb = np.zeros((len(combo), rid_model.trials))
+    trial_err_dict = {'train': trial_times_comb,'validation': trial_times_comb,'test': trial_times_comb}
+
+    for trial in xrange(rid_model.trials):
+        count_comb = 0
+
+        trval_idx, te_idx, x_trval, y_trval, x_te, y_te = rid_data.trval_te_idx_split()
+
+        for comb in combo:
+
+            for iter_num in xrange(1, rid_data.cv+1):
+
+                try:
+
+                    regulizer = comb[0]
+
+                except:
+                    regulizer = comb
+
+                try:
+                    if(len(comb) == 2):
+                        sig = comb[1]
+                except:
+                    sig = None
+
+                val_idx, x_val, y_val, tr_idx, x_tr, y_tr = rid_data.split_cv(
+                    iter_num, trval_idx)
+
+                rid_model.calc_kernel_mat('gaus', sigma=sig)
+
+                tr_ker = rid_model.kernel_split(tr_idx, tr_idx)
+                val_ker = rid_model.kernel_split(val_idx, tr_idx)
+                trval_ker = rid_model.kernel_split(trval_idx, trval_idx)
+                te_ker = rid_model.kernel_split(te_idx, trval_idx)
+
+                alpha_trval = rid_model.calc_alpha(
+                    trval_ker, y_trval, regulizer)
+                alpha_val = rid_model.calc_alpha(tr_ker, y_tr, regulizer)
+
+                trval_pred = rid_model.predict(trval_ker, alpha_trval)
+                val_pred = rid_model.predict(val_ker, alpha_val)
+                te_pred = rid_model.predict(te_ker, alpha_trval)
+
+                trval_mse = rid_model.mse(y_trval, trval_pred)
+                val_mse = rid_model.mse(y_val, val_pred)
+                te_mse = rid_model.mse(y_te, te_pred)
+
+                cv_errs[:, (iter_num - 1)] = np.array([trval_mse, val_mse, te_mse]).reshape(-1)
+
+            err_w_params[:, count_comb] = np.array([np.mean(cv_errs, 1)])
+            count_comb += 1
+
+        trial_err_dict['train'][:, trial] = err_w_params[0, :].reshape(-1)
+        trial_err_dict['validation'][:, trial] = err_w_params[1, :].reshape(-1)
+        trial_err_dict['test'][:, trial] = err_w_params[2, :].reshape(-1)
+
+    print min(trial_err_dict['validation'][:, 1])
+
 
 
 if __name__ == '__main__':

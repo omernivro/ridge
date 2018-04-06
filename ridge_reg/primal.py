@@ -1,3 +1,4 @@
+from ridge import ridge
 import numpy as np
 from numpy.linalg import inv
 
@@ -16,7 +17,7 @@ class primal(ridge):
     def predict(self, _x, w_hat):
         self.y_hat = self._x.dot(self.w_hat)
 
-    return(self.y_hat)
+        return(self.y_hat)
 
 
 def main():
